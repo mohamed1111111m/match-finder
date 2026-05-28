@@ -1,0 +1,238 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ───────────────────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isSupport() {
+      return isAuth() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'support'
+      );
+    }
+
+    function fieldUnchanged(field) {
+      return !(field in request.resource.data) ||
+        request.resource.data[field] == resource.data[field];
+    }
+
+    // ─── Users collection ──────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuth();
+
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'user'
+        && request.resource.data.wins == 0
+        && request.resource.data.points == 0;
+
+      allow update: if isOwner(userId)
+        && fieldUnchanged('role')
+        && fieldUnchanged('wins')
+        && fieldUnchanged('losses')
+        && fieldUnchanged('points')
+        && fieldUnchanged('globalRank')
+        && fieldUnchanged('totalMatches');
+
+      allow update: if isAdmin();
+      allow delete: if false;
+
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+        allow create: if isAdmin();
+      }
+    }
+
+    // ─── Tournaments collection ────────────────────────────────────────────
+    match /tournaments/{tournamentId} {
+      allow read: if isAuth();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow update: if isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['participantIds', 'currentParticipants', 'updatedAt'])
+        && request.resource.data.currentParticipants ==
+            resource.data.currentParticipants + 1
+        && request.resource.data.currentParticipants <=
+            resource.data.maxParticipants;
+      allow delete: if isAdmin();
+
+      match /participants/{participantId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+        allow create: if isOwner(participantId);
+      }
+    }
+
+    // ─── Payments collection ───────────────────────────────────────────────
+    match /payments/{paymentId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── Rankings collection ───────────────────────────────────────────────
+    match /rankings/{rankingId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ─── Conversations collection (real-time chat) ─────────────────────────
+    match /conversations/{convId} {
+      // Any authenticated user can read/write conversations.
+      // The convId is derived from sorted UIDs so it's not guessable.
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if false;
+
+      match /messages/{msgId} {
+        allow read: if isAuth();
+        allow create: if isAuth() &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuth() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isRead']);
+        allow delete: if false;
+      }
+    }
+
+    // ─── Venues collection ────────────────────────────────────────────────
+    match /venues/{venueId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+
+      match /bookings/{bookingId} {
+        allow read: if isAuth() && resource.data.userId == request.auth.uid;
+        allow read: if isAdmin();
+        allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ─── Venue slots (real-time booking availability) ─────────────────────
+    match /venue_slots/{slotDocId} {
+      allow read: if isAuth();
+      // Slots are written atomically via Firestore transactions from the app
+      allow write: if isAuth();
+    }
+
+    // ─── Teams collection ─────────────────────────────────────────────────
+    match /teams/{teamId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.captainId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.captainId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isAdmin();
+
+      // Team chat messages subcollection
+      match /messages/{msgId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // ─── Matchmaking sessions ─────────────────────────────────────────────
+    match /matchmaking_sessions/{sessionId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.creatorId == request.auth.uid
+        && request.resource.data.status == 'open';
+      allow update: if isAuth() && (
+        isAdmin()
+        || (resource.data.creatorId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status']))
+        || request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['playerIds', 'playerNames', 'currentPlayers', 'status'])
+      );
+      allow delete: if isAdmin() || resource.data.creatorId == request.auth.uid;
+
+      // Per-session chat subcollection
+      match /messages/{msgId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // ─── Team challenges ──────────────────────────────────────────────────
+    match /team_challenges/{challengeId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth();
+      allow delete: if false;
+    }
+
+    // ─── Bookings (top-level) ─────────────────────────────────────────────
+    match /bookings/{bookingId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+
+      // User submits payment confirmation — allows status, paymentMethod,
+      // receiptUrl, and paymentSubmittedAt to be updated
+      allow update: if isAuth()
+        && resource.data.userId == request.auth.uid
+        && resource.data.status == 'awaiting_payment'
+        && request.resource.data.status == 'pending_verification'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'paymentMethod', 'receiptUrl', 'paymentSubmittedAt']);
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Support chats ────────────────────────────────────────────────────
+    match /support_chats/{userId} {
+      // User can read their own chat thread; support/admin can read all
+      allow read: if isOwner(userId) || isSupport();
+
+      // User can create/update their own chat document (upsert)
+      allow create, update: if isOwner(userId) || isSupport();
+
+      match /messages/{msgId} {
+        allow read: if isOwner(userId) || isSupport();
+        allow create: if isOwner(userId) || isSupport();
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── App settings ─────────────────────────────────────────────────────
+    match /settings/{docId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ─── Ads collection ───────────────────────────────────────────────────
+    match /ads/{adId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── Default: deny everything else ────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

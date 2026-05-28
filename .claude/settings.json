@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter run:*)",
+      "Bash(adb -s GQLBNBDIBU8DDIMF logcat -d -t 200)",
+      "Bash(adb -s GQLBNBDIBU8DDIMF logcat -d)",
+      "Bash(GRADLE_USER_HOME=\"E:/.gradle\" flutter analyze --no-fatal-infos)",
+      "Bash(adb devices:*)",
+      "Bash(\"C:/Users/mohamed magdy/AppData/Local/Android/Sdk/platform-tools/adb.exe\" devices)",
+      "Bash(where convert *)",
+      "Bash(python -c \"from PIL import Image, ImageDraw, ImageFont; print\\('pillow ok'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -c \"from PIL import Image; print\\('ok'\\)\")"
+    ]
+  }
+}

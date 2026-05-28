@@ -1,0 +1,101 @@
+name: ekora_app
+description: A competitive gaming & tournament platform for Egypt
+publish_to: 'none'
+version: 1.0.0+8
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+
+  # Navigation
+  go_router: ^13.2.0
+
+  # Firebase
+  firebase_core: ^2.27.1
+  firebase_auth: ^4.17.9
+  cloud_firestore: ^4.15.9
+  firebase_storage: ^11.6.10
+  firebase_messaging: ^14.7.19
+  firebase_crashlytics: ^3.4.19
+  firebase_analytics: ^10.8.9
+  firebase_performance: ^0.9.3+19
+  cloud_functions: ^4.6.8
+
+  # Social Auth
+  google_sign_in: ^6.2.1
+
+  # HTTP & Networking
+  http: ^1.2.1
+  connectivity_plus: ^6.0.0
+
+  # UI Components
+  cached_network_image: ^3.3.1
+  flutter_animate: ^4.5.0
+  flutter_svg: ^2.0.10+1
+  shimmer: ^3.0.0
+  lottie: ^3.1.0
+  image_picker: ^1.0.7
+  photo_view: ^0.14.0
+
+  # Storage & Cache
+  shared_preferences: ^2.2.3
+  flutter_secure_storage: ^9.2.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # URL / deep-link launcher
+  url_launcher: ^6.3.0
+
+  # Receipt & sharing
+  confetti: ^0.7.0
+  pdf: ^3.10.8
+  printing: ^5.11.0
+  share_plus: ^7.2.2
+  flutter_image_compress: ^2.1.0
+
+  # Utils
+  dartz: ^0.10.1
+  equatable: ^2.0.5
+  intl: ^0.20.2
+  uuid: ^4.3.3
+  logger: ^2.3.0
+  path_provider: ^2.1.3
+  permission_handler: ^11.3.1
+
+  # Icons & Fonts
+  google_fonts: ^6.2.1
+  cupertino_icons: ^1.0.8
+  font_awesome_flutter: ^10.7.0
+  flutter_iconly: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.2
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#1B5E20"
+  adaptive_icon_foreground: "assets/icons/app_icon.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+    - assets/lottie/
+
