@@ -13,8 +13,8 @@ import '../../../venues/presentation/providers/venue_provider.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Every 30-minute slot from 06:00 to 23:30
-List<String> _buildSlots({String from = '06:00', String to = '23:30'}) {
+/// Every 30-minute slot from 00:00 to 23:30
+List<String> _buildSlots({String from = '00:00', String to = '23:30'}) {
   final slots = <String>[];
   var h = int.parse(from.split(':')[0]);
   var m = int.parse(from.split(':')[1]);
@@ -26,6 +26,19 @@ List<String> _buildSlots({String from = '06:00', String to = '23:30'}) {
     if (m >= 60) { m = 0; h++; }
   }
   return slots;
+}
+
+String _to12hr(String hhmm) {
+  final parts = hhmm.split(':');
+  var h = int.parse(parts[0]);
+  final m = parts[1];
+  final period = h < 12 ? 'AM' : 'PM';
+  if (h == 0) {
+    h = 12;
+  } else if (h > 12) {
+    h -= 12;
+  }
+  return '$h:$m $period';
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -396,7 +409,7 @@ class _VenueAdminTileState extends ConsumerState<_VenueAdminTile> {
                     const Icon(Icons.access_time_outlined,
                         size: 13, color: AppColors.textMuted),
                     const SizedBox(width: 4),
-                    Text('${venue.openTime} – ${venue.closeTime}',
+                    Text('${_to12hr(venue.openTime)} – ${_to12hr(venue.closeTime)}',
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.textMuted)),
                   ],
@@ -563,7 +576,7 @@ class _TimeSlotsEditorState extends ConsumerState<_TimeSlotsEditor> {
                           ? AppColors.error
                           : AppColors.primary),
                 ),
-                child: Text(t,
+                child: Text(_to12hr(t),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -617,8 +630,8 @@ class _VenueFormSheetState extends ConsumerState<_VenueFormSheet> {
   late final _desc = TextEditingController(text: widget.venue?.description ?? '');
 
   late String _sport = widget.venue?.sport ?? 'football';
-  late String _openTime = widget.venue?.openTime ?? '08:00';
-  late String _closeTime = widget.venue?.closeTime ?? '23:00';
+  late String _openTime = widget.venue?.openTime ?? '00:00';
+  late String _closeTime = widget.venue?.closeTime ?? '23:30';
 
   late final List<String> _images = List.from(widget.venue?.images ?? []);
   bool _loading = false;
@@ -626,7 +639,7 @@ class _VenueFormSheetState extends ConsumerState<_VenueFormSheet> {
   bool get _isEdit => widget.venue != null;
 
   // Generate hour+half-hour options for pickers
-  static final _timeOpts = _buildSlots(from: '06:00', to: '24:00');
+  static final _timeOpts = _buildSlots(from: '00:00', to: '23:30');
 
   @override
   void dispose() {
@@ -939,7 +952,7 @@ class _TimeDropdown extends StatelessWidget {
           labelText: label,
           prefixIcon: const Icon(Icons.access_time_outlined, size: 18)),
       items: options
-          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+          .map((t) => DropdownMenuItem(value: t, child: Text(_to12hr(t))))
           .toList(),
       onChanged: (v) { if (v != null) onChanged(v); },
     );

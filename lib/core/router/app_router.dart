@@ -11,6 +11,7 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/admin/presentation/screens/admin_venues_screen.dart';
 import '../../features/admin/presentation/screens/create_tournament_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/auth/domain/entities/user_entity.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
@@ -75,24 +76,28 @@ class AppRoutes {
 
 // Notifies GoRouter to re-run redirect without recreating the router instance.
 class _RouterNotifier extends ChangeNotifier {
-  AsyncValue<dynamic> _authState;
+  AsyncValue<UserEntity?> _authState;
 
   _RouterNotifier(this._authState);
 
-  void update(AsyncValue<dynamic> next) {
+  void update(AsyncValue<UserEntity?> next) {
     _authState = next;
     notifyListeners();
   }
 
   bool get isLoading => _authState is AsyncLoading;
   bool get isAuthenticated => _authState.valueOrNull != null;
+  bool get isOnboardingComplete => _authState.valueOrNull?.onboardingComplete ?? false;
 }
+
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref.read(authStateProvider));
   ref.listen(authStateProvider, (_, next) => notifier.update(next));
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
     refreshListenable: notifier,
@@ -109,8 +114,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final onAuth = authPaths.contains(path);
 
       if (!notifier.isAuthenticated && !onAuth) return AppRoutes.login;
-      if (notifier.isAuthenticated && onAuth && path != AppRoutes.splash) {
-        return AppRoutes.home;
+      
+      if (notifier.isAuthenticated) {
+        if (!notifier.isOnboardingComplete && path != '/onboarding') {
+          return '/onboarding';
+        } else if (notifier.isOnboardingComplete && path == '/onboarding') {
+          return AppRoutes.home;
+        } else if (onAuth && path != AppRoutes.splash && path != '/onboarding') {
+          return AppRoutes.home;
+        }
       }
       return null;
     },

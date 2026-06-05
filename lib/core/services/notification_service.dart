@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
 
 import '../config/app_config.dart';
 import '../constants/app_constants.dart';
 import '../utils/logger.dart';
+import '../router/app_router.dart';
 
 /// Background message handler — must be top-level function.
 @pragma('vm:entry-point')
@@ -15,9 +20,10 @@ class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
-  // Lazy — only set after initialize() succeeds (Firebase mode only).
   FirebaseMessaging? _fcm;
   FirebaseFirestore? _firestore;
+  
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
@@ -30,6 +36,32 @@ class NotificationService {
 
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Initialize Local Notifications
+    const initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettingsIOS = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await _localNotifications.initialize(
+      settings: initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload != null) {
+          try {
+            final data = jsonDecode(response.payload!);
+            _handleNavigation(data);
+          } catch (e) {
+            AppLogger.error('Error parsing notification payload: $e');
+          }
+        }
+      },
+    );
 
     // Request permission (iOS & Android 13+)
     final settings = await _fcm!.requestPermission(
@@ -66,7 +98,6 @@ class NotificationService {
     });
   }
 
-  /// Save the FCM token to Firestore for a given user.
   Future<void> saveTokenForUser(String userId) async {
     if (_fcmToken == null || _firestore == null) return;
     try {
@@ -90,13 +121,42 @@ class NotificationService {
 
   void _handleForegroundMessage(RemoteMessage message) {
     AppLogger.info('FCM foreground: ${message.notification?.title}');
+    
+    final notification = message.notification;
+    if (notification != null) {
+      _localNotifications.show(
+        id: notification.hashCode,
+        title: notification.title,
+        body: notification.body,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'high_importance_channel', // id
+            'High Importance Notifications', // title
+            channelDescription: 'This channel is used for important notifications.',
+            importance: Importance.high,
+            priority: Priority.high,
+            color: Color(0xFF2E7D32), // green #2E7D32
+            icon: '@mipmap/ic_launcher',
+          ),
+        ),
+        payload: jsonEncode(message.data),
+      );
+    }
   }
 
   void _handleNotificationOpen(RemoteMessage message) {
     AppLogger.info('Notification tapped: ${message.data}');
+    _handleNavigation(message.data);
   }
 
-  /// Save a notification record to Firestore for the user's notification feed.
+  void _handleNavigation(Map<String, dynamic> data) {
+    final route = data['route'] as String?;
+    final context = rootNavigatorKey.currentContext;
+    if (route != null && context != null) {
+      context.push(route);
+    }
+  }
+
   Future<void> saveNotification({
     required String userId,
     required String title,

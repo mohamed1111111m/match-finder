@@ -15,6 +15,7 @@ import '../../../notifications/presentation/providers/notifications_provider.dar
 import '../../../teams/presentation/providers/team_provider.dart';
 import '../../../venues/domain/entities/booking_entity.dart';
 import '../../../venues/presentation/providers/venue_provider.dart';
+import '../providers/profile_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -120,10 +121,16 @@ class _UserProfileView extends ConsumerWidget {
                       _SettingsGroup(
                         children: [
                           _SettingRow(
-                            icon: Icons.person_outline_rounded,
+                            icon: Icons.badge_outlined,
                             iconColor: AppColors.secondary,
-                            label: 'تعديل الملف الشخصي',
-                            onTap: () => context.push('/profile/edit'),
+                            label: 'تغيير الاسم',
+                            onTap: () => _showChangeNameSheet(context, ref, user),
+                          ),
+                          _SettingRow(
+                            icon: Icons.add_a_photo_outlined,
+                            iconColor: AppColors.success,
+                            label: 'تغيير الصورة',
+                            onTap: () => _changePhoto(context, ref, user),
                           ),
                           _SettingRow(
                             icon: Icons.notifications_outlined,
@@ -207,6 +214,76 @@ class _UserProfileView extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _changePhoto(BuildContext context, WidgetRef ref, UserEntity user) async {
+    final success = await ref
+        .read(profileNotifierProvider.notifier)
+        .uploadAvatar(user.uid);
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تحديث الملف الشخصي')),
+      );
+    }
+  }
+
+  void _showChangeNameSheet(BuildContext context, WidgetRef ref, UserEntity user) {
+    final ctrl = TextEditingController(text: user.displayName ?? user.username);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 24,
+            right: 24,
+            top: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('تغيير الاسم',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              decoration: const InputDecoration(
+                hintText: 'الاسم الجديد',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () async {
+                  if (ctrl.text.trim().isEmpty) return;
+                  Navigator.pop(ctx);
+                  final success = await ref
+                      .read(profileNotifierProvider.notifier)
+                      .updateProfile(
+                        userId: user.uid,
+                        username: ctrl.text.trim(),
+                      );
+                  if (success && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم تحديث الملف الشخصي')),
+                    );
+                  }
+                },
+                child: const Text('حفظ',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }

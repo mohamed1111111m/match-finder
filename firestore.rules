@@ -36,6 +36,9 @@ service cloud.firestore {
       allow create: if isOwner(userId)
         && request.resource.data.role == 'user'
         && request.resource.data.wins == 0
+        && request.resource.data.losses == 0
+        && request.resource.data.totalMatches == 0
+        && request.resource.data.globalRank == 0
         && request.resource.data.points == 0;
 
       allow update: if isOwner(userId)
@@ -163,8 +166,9 @@ service cloud.firestore {
         || (resource.data.creatorId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['status']))
-        || request.resource.data.diff(resource.data).affectedKeys()
+        || (request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['playerIds', 'playerNames', 'currentPlayers', 'status'])
+            && request.resource.data.playerIds.hasAll(resource.data.playerIds))
       );
       allow delete: if isAdmin() || resource.data.creatorId == request.auth.uid;
 

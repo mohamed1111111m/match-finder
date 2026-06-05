@@ -20,6 +20,7 @@ class UserModel extends UserEntity {
     super.globalRank,
     required super.createdAt,
     super.updatedAt,
+    super.onboardingComplete,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -41,6 +42,7 @@ class UserModel extends UserEntity {
       globalRank: (data['globalRank'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      onboardingComplete: data['onboardingComplete'] as bool? ?? false,
     );
   }
 
@@ -62,6 +64,7 @@ class UserModel extends UserEntity {
       globalRank: (data['globalRank'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      onboardingComplete: data['onboardingComplete'] as bool? ?? false,
     );
   }
 
@@ -80,6 +83,7 @@ class UserModel extends UserEntity {
       'totalMatches': totalMatches,
       'points': points,
       'globalRank': globalRank,
+      'onboardingComplete': onboardingComplete,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -111,6 +115,7 @@ class UserModel extends UserEntity {
       globalRank: entity.globalRank,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
+      onboardingComplete: entity.onboardingComplete,
     );
   }
 }

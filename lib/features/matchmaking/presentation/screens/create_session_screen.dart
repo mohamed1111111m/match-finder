@@ -35,13 +35,24 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
     'الإسماعيلية', 'بورسعيد', 'السويس', 'القنطرة',
     'القاهرة', 'الإسكندرية', 'المنصورة', 'طنطا',
   ];
-  final _times = [
-    '06:00','06:30','07:00','07:30','08:00','08:30','09:00','09:30',
-    '10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30',
-    '14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30',
-    '18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30',
-    '22:00','22:30','23:00',
-  ];
+  final _times = List.generate(48, (index) {
+    final h = index ~/ 2;
+    final m = (index % 2) * 30;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  });
+
+  static String _to12hr(String hhmm) {
+    final parts = hhmm.split(':');
+    var h = int.parse(parts[0]);
+    final m = parts[1];
+    final period = h < 12 ? 'AM' : 'PM';
+    if (h == 0) {
+      h = 12;
+    } else if (h > 12) {
+      h -= 12;
+    }
+    return '$h:$m $period';
+  }
 
   @override
   void dispose() {
@@ -207,7 +218,7 @@ class _CreateSessionScreenState extends ConsumerState<CreateSessionScreen> {
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           prefixIcon: Icon(Icons.access_time_outlined, size: 18),
                         ),
-                        items: _times.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                        items: _times.map((t) => DropdownMenuItem(value: t, child: Text(_to12hr(t)))).toList(),
                         onChanged: (v) => setState(() => _time = v!),
                       ),
                     ],

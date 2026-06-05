@@ -31,7 +31,7 @@ class _VenueDetailScreenState extends ConsumerState<VenueDetailScreen> {
     final parts = hhmm.split(':');
     var h = int.parse(parts[0]);
     final m = parts[1];
-    final period = h < 12 ? 'ص' : 'م';
+    final period = h < 12 ? 'AM' : 'PM';
     if (h == 0) {
       h = 12;
     } else if (h > 12) {

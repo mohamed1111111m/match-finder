@@ -75,6 +75,10 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
           .doc(userId)
           .update(updates);
 
+      if (username != null) {
+        await FirebaseAuth.instance.currentUser?.updateDisplayName(username.trim());
+      }
+
       state = state.copyWith(isLoading: false, success: true);
       return true;
     } catch (e) {

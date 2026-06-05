@@ -383,17 +383,21 @@ class _QuickActions extends StatelessWidget {
       _QA('فريقي',      Icons.shield_rounded,           AppColors.warning,    '/teams'),
       _QA('بطولات',     Icons.emoji_events_rounded,     AppColors.gold,       '/tournaments'),
     ];
-    return Row(
-      children: items.asMap().entries.map((e) => Expanded(
-        child: Padding(
-          padding: EdgeInsets.only(left: e.key > 0 ? 8 : 0),
-          child: _QATile(qa: e.value)
-              .animate(delay: (e.key * 60).ms)
+
+    final List<Widget> children = [];
+    for (int i = 0; i < items.length; i++) {
+      if (i > 0) children.add(const SizedBox(width: 8));
+      children.add(
+        Expanded(
+          child: _QATile(qa: items[i])
+              .animate(delay: (i * 60).ms)
               .fadeIn()
               .scale(begin: const Offset(0.88, 0.88)),
         ),
-      )).toList(),
-    );
+      );
+    }
+
+    return Row(children: children);
   }
 }
 

@@ -17,6 +17,7 @@ class UserEntity extends Equatable {
   final int globalRank;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final bool onboardingComplete;
 
   const UserEntity({
     required this.uid,
@@ -35,6 +36,7 @@ class UserEntity extends Equatable {
     this.globalRank = 0,
     required this.createdAt,
     this.updatedAt,
+    this.onboardingComplete = false,
   });
 
   bool get isAdmin => role == 'admin';
@@ -60,6 +62,7 @@ class UserEntity extends Equatable {
     int? globalRank,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? onboardingComplete,
   }) {
     return UserEntity(
       uid: uid ?? this.uid,
@@ -78,9 +81,10 @@ class UserEntity extends Equatable {
       globalRank: globalRank ?? this.globalRank,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      onboardingComplete: onboardingComplete ?? this.onboardingComplete,
     );
   }
 
   @override
-  List<Object?> get props => [uid, email, username, role, wins, losses, points];
+  List<Object?> get props => [uid, email, username, role, wins, losses, points, onboardingComplete, photoUrl, displayName];
 }

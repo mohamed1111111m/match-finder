@@ -1,9 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/network/network_info.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/models/user_model.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/google_sign_in_usecase.dart';
@@ -23,7 +27,16 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 // Provides the currently authenticated user or null.
 
 final authStateProvider = StreamProvider<UserEntity?>((ref) {
-  return ref.watch(authRepositoryProvider).authStateChanges;
+  return FirebaseAuth.instance.authStateChanges().asyncExpand((firebaseUser) {
+    if (firebaseUser == null) {
+      return Stream.value(null);
+    }
+    return FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .doc(firebaseUser.uid)
+        .snapshots()
+        .map((doc) => doc.exists ? UserModel.fromFirestore(doc) : null);
+  });
 });
 
 // ─── Current user convenience provider ────────────────────────────────────

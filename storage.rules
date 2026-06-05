@@ -41,16 +41,16 @@ service firebase.storage {
     // Path: tournament_images/{tournamentId}/{fileName}
     match /tournament_images/{tournamentId}/{fileName} {
       allow read: if isAuth();
-      allow write: if isAuth() && isImage() && isUnder5MB();
-      allow delete: if isAuth();
+      allow write: if isAdmin() && isImage() && isUnder5MB();
+      allow delete: if isAdmin();
     }
 
     // ─── Venue images ─────────────────────────────────────────────────────────
     // Path: venue_images/{venueId}/{fileName}
     match /venue_images/{venueId}/{fileName} {
       allow read: if isAuth();
-      allow write: if isAuth() && isImage() && isUnder5MB();
-      allow delete: if isAuth();
+      allow write: if isAdmin() && isImage() && isUnder5MB();
+      allow delete: if isAdmin();
     }
 
     // ─── Payment receipts ─────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ service firebase.storage {
     match /receipts/{bookingId} {
       allow read: if isAuth();
       allow write: if isAuth() && isImage() && isUnder5MB();
-      allow delete: if isAuth();
+      allow delete: if isAdmin();
     }
 
     // ─── Default: deny ────────────────────────────────────────────────────────

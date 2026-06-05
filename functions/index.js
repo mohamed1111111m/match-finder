@@ -432,3 +432,116 @@ exports.onUserCreated = functions
 
     functions.logger.info(`New user created: ${user.uid}`);
   });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * onMatchPlayerJoined — notify match creator when a new player joins.
+ */
+exports.onMatchPlayerJoined = functions
+  .region("europe-west1")
+  .firestore.document("matchmaking_sessions/{sessionId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    const beforePlayers = before.playerIds || [];
+    const afterPlayers = after.playerIds || [];
+
+    // Check if a new player was added
+    if (afterPlayers.length <= beforePlayers.length) return null;
+
+    const newPlayerId = afterPlayers.find((id) => !beforePlayers.includes(id));
+    if (!newPlayerId) return null;
+
+    // Don't notify if the creator joined their own match (usually happens on creation, but just in case)
+    if (newPlayerId === after.creatorId) return null;
+
+    const newPlayerName = after.playerNames?.[newPlayerId] || "لاعب جديد";
+
+    // Get creator's FCM token
+    const creatorDoc = await db.collection("users").doc(after.creatorId).get();
+    if (!creatorDoc.exists) return null;
+    const fcmToken = creatorDoc.data().fcmToken;
+    if (!fcmToken) return null;
+
+    try {
+      await admin.messaging().send({
+        token: fcmToken,
+        notification: {
+          title: "لاعب جديد انضم! ⚽",
+          body: `انضم ${newPlayerName} إلى الماتش الخاص بك في ${after.city}.`,
+        },
+        data: {
+          route: "/matchmaking",
+          id: context.params.sessionId,
+          type: "match_joined",
+        },
+        android: { priority: "high" },
+        apns: { payload: { aps: { sound: "default" } } },
+      });
+      functions.logger.info(`Notified creator ${after.creatorId} about new player ${newPlayerId}`);
+    } catch (err) {
+      functions.logger.error("Match join notification failed:", err);
+    }
+    return null;
+  });
+
+/**
+ * onTeamMemberJoined — notify team members when a new player joins.
+ */
+exports.onTeamMemberJoined = functions
+  .region("europe-west1")
+  .firestore.document("teams/{teamId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    const beforeMembers = before.memberIds || [];
+    const afterMembers = after.memberIds || [];
+
+    // Check if a new member was added
+    if (afterMembers.length <= beforeMembers.length) return null;
+
+    const newMemberId = afterMembers.find((id) => !beforeMembers.includes(id));
+    if (!newMemberId) return null;
+
+    const newMemberName = after.memberNames?.[newMemberId] || "لاعب جديد";
+
+    // Get FCM tokens for all other team members
+    const otherMemberIds = afterMembers.filter(id => id !== newMemberId);
+    if (otherMemberIds.length === 0) return null;
+
+    const userDocs = await Promise.all(
+      otherMemberIds.map(uid => db.collection("users").doc(uid).get())
+    );
+
+    const tokens = userDocs
+      .filter(d => d.exists && d.data().fcmToken)
+      .map(d => d.data().fcmToken);
+
+    if (tokens.length === 0) return null;
+
+    try {
+      await admin.messaging().sendEachForMulticast({
+        tokens: tokens,
+        notification: {
+          title: "عضو جديد في التيم! 🛡️",
+          body: `انضم ${newMemberName} إلى تيم ${after.name}.`,
+        },
+        data: {
+          route: "/teams/" + context.params.teamId,
+          id: context.params.teamId,
+          type: "team_joined",
+        },
+        android: { priority: "high" },
+        apns: { payload: { aps: { sound: "default" } } },
+      });
+      functions.logger.info(`Notified ${tokens.length} team members about new member ${newMemberId}`);
+    } catch (err) {
+      functions.logger.error("Team join notification failed:", err);
+    }
+    return null;
+  });

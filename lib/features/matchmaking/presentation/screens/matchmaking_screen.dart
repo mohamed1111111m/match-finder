@@ -110,10 +110,11 @@ class _Chip extends StatelessWidget {
         ),
         child: Text(label,
           style: TextStyle(
-            color: selected ? Colors.black : cs.onSurfaceVariant,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? Colors.white : cs.onSurface,
+            fontWeight: FontWeight.w600,
             fontSize: 13,
-          )),
+          ),
+        ),
       ),
     );
   }
@@ -121,9 +122,37 @@ class _Chip extends StatelessWidget {
 
 // ── Session card ──────────────────────────────────────────────────────────────
 
-class _SessionCard extends ConsumerWidget {
+class _SessionCard extends ConsumerStatefulWidget {
   final MatchSessionEntity session;
   const _SessionCard({required this.session});
+
+  @override
+  ConsumerState<_SessionCard> createState() => _SessionCardState();
+}
+
+class _SessionCardState extends ConsumerState<_SessionCard>
+    with SingleTickerProviderStateMixin {
+  bool _isExpanded = false;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   Color _sportColor(String s) {
     switch (s) {
@@ -143,311 +172,370 @@ class _SessionCard extends ConsumerWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final user         = ref.watch(currentUserProvider);
-    final c            = _sportColor(session.sport);
-    final alreadyJoined = user != null && session.isPlayer(user.uid);
-    final isCreator    = user != null && session.creatorId == user.uid;
-    final progress     = session.currentPlayers / session.totalPlayers;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+  void _handleTap() {
+    if (_isExpanded) {
+      setState(() => _isExpanded = false);
+      _pulseController.stop();
+      _pulseController.reset();
+    } else {
+      // Navigate to match detail screen
+      // Since it doesn't exist yet, we can push to a placeholder or ignore if we want,
+      // but user asked to pass match ID. We can push a basic MaterialPageRoute.
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('تفاصيل الماتش')),
+            body: Center(child: Text('تفاصيل الماتش: ${widget.session.id}')),
           ),
-        ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Left accent
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: c,
-                borderRadius: const BorderRadius.horizontal(
-                    right: Radius.circular(20)),
-              ),
+        ),
+      );
+    }
+  }
+
+  void _handleLongPress() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+    if (_isExpanded) {
+      _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.stop();
+      _pulseController.reset();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final user = ref.watch(currentUserProvider);
+    final c = _sportColor(widget.session.sport);
+    final alreadyJoined = user != null && widget.session.isPlayer(user.uid);
+    final isCreator = user != null && widget.session.creatorId == user.uid;
+    final progress = widget.session.currentPlayers / widget.session.totalPlayers;
+
+    return GestureDetector(
+      onTap: _handleTap,
+      onLongPress: _handleLongPress,
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _isExpanded ? _pulseAnimation.value : 1.0,
+            child: child,
+          );
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _isExpanded ? AppColors.primary : cs.outline,
+              width: _isExpanded ? 2.0 : 1.0,
             ),
-
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Creator row
-                    Row(
+            boxShadow: [
+              BoxShadow(
+                color: _isExpanded
+                    ? AppColors.primary.withValues(alpha: 0.3)
+                    : Colors.black.withValues(alpha: 0.08),
+                blurRadius: _isExpanded ? 20 : 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left accent
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: c,
+                    borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(20)),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          radius: 13,
-                          backgroundColor: c.withValues(alpha: 0.2),
-                          child: Text(
-                            session.creatorName.isNotEmpty
-                                ? session.creatorName[0].toUpperCase()
-                                : '؟',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: c,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: Text(session.creatorName,
-                              style: TextStyle(
+                        // Creator row (Always visible)
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 13,
+                              backgroundColor: c.withValues(alpha: 0.2),
+                              child: Text(
+                                widget.session.creatorName.isNotEmpty
+                                    ? widget.session.creatorName[0].toUpperCase()
+                                    : '؟',
+                                style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.onSurface),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: session.isOpen
-                                ? AppColors.primary.withValues(alpha: 0.12)
-                                : cs.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            session.isOpen
-                                ? 'فاضل ${session.spotsLeft} مكان'
-                                : 'اكتمل',
-                            style: TextStyle(
-                              color: session.isOpen
-                                  ? AppColors.primary
-                                  : cs.onSurfaceVariant,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    // Sport label
-                    Row(
-                      children: [
-                        Icon(_sportIcon(session.sport), color: c, size: 14),
-                        const SizedBox(width: 4),
-                        Text(session.sportAr,
-                            style: TextStyle(
-                                color: c,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Location
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_outlined,
-                            size: 14, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(session.location,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 5),
-
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today_outlined,
-                            size: 12, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 4),
-                        Text('${session.dateText} • ${session.time}',
-                          style: TextStyle(
-                              fontSize: 12, color: cs.onSurfaceVariant)),
-                        const Spacer(),
-                        if (session.pricePerPlayer != null)
-                          Text('${session.pricePerPlayer!.toInt()} ج/لاعب',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            )),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Progress bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 5,
-                        backgroundColor: cs.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(c),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '${session.currentPlayers}/${session.totalPlayers} لاعب',
-                      style: TextStyle(
-                          fontSize: 11, color: cs.onSurfaceVariant),
-                    ),
-
-                    // ── Players list — visible to EVERYONE ─────────────
-                    if (session.playerIds.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _PlayersRow(session: session, isCreator: isCreator),
-                    ],
-
-                    // Bill split
-                    if (session.pricePerPlayer != null) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: c.withValues(alpha: 0.07),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: c.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(children: [
-                          Icon(Icons.receipt_long_outlined, size: 13, color: c),
-                          const SizedBox(width: 6),
-                          Text('تقسيم: ${session.totalPlayers} × ${session.pricePerPlayer!.toInt()} ج',
-                            style: TextStyle(fontSize: 12,
-                                fontWeight: FontWeight.w700, color: c)),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: c,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'نصيبك ${session.pricePerPlayer!.toInt()} ج',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ]),
-                      ),
-                    ],
-
-                    const SizedBox(height: 12),
-
-                    // Buttons row
-                    Row(
-                      children: [
-                        if (alreadyJoined || isCreator)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: OutlinedButton.icon(
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => SessionChatScreen(session: session),
+                                  fontWeight: FontWeight.w800,
+                                  color: c,
                                 ),
                               ),
-                              icon: const Icon(Icons.chat_rounded, size: 16),
-                              label: const Text('دردشة'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: c,
-                                side: BorderSide(color: c),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20)),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(widget.session.creatorName,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.onSurface),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: widget.session.isOpen
+                                    ? AppColors.primary.withValues(alpha: 0.12)
+                                    : cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                widget.session.isOpen
+                                    ? 'فاضل ${widget.session.spotsLeft} مكان'
+                                    : 'اكتمل',
+                                style: TextStyle(
+                                  color: widget.session.isOpen
+                                      ? AppColors.primary
+                                      : cs.onSurfaceVariant,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+
+                        // Date & Time (Always visible)
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today_outlined,
+                                size: 12, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 4),
+                            Text('${widget.session.dateText} • ${widget.session.time}',
+                                style: TextStyle(
+                                    fontSize: 12, color: cs.onSurfaceVariant)),
+                          ],
+                        ),
+
+                        // --- EXPANDED DETAILS ---
+                        if (_isExpanded) ...[
+                          const SizedBox(height: 10),
+                          // Sport label
+                          Row(
+                            children: [
+                              Icon(_sportIcon(widget.session.sport), color: c, size: 14),
+                              const SizedBox(width: 4),
+                              Text(widget.session.sportAr,
+                                  style: TextStyle(
+                                      color: c,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          // Location
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_outlined,
+                                  size: 14, color: cs.onSurfaceVariant),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(widget.session.location,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: cs.onSurface,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Progress bar
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 5,
+                              backgroundColor: cs.surfaceContainerHighest,
+                              valueColor: AlwaysStoppedAnimation<Color>(c),
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            '${widget.session.currentPlayers}/${widget.session.totalPlayers} لاعب',
+                            style: TextStyle(
+                                fontSize: 11, color: cs.onSurfaceVariant),
                           ),
 
-                        if (isCreator)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: AppColors.error, size: 20),
-                              tooltip: 'حذف الإعلان',
-                              onPressed: () async {
-                                final ok = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20)),
-                                    title: const Text('حذف الإعلان؟',
-                                        style: TextStyle(fontWeight: FontWeight.w800)),
-                                    content: const Text('هتشيل الإعلان ده نهائياً؟'),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () => Navigator.pop(ctx, false),
-                                          child: const Text('لا')),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                        child: const Text('نعم، احذفه',
-                                            style: TextStyle(color: AppColors.error)),
-                                      ),
-                                    ],
+                          // Players list
+                          if (widget.session.playerIds.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            _PlayersRow(session: widget.session, isCreator: isCreator),
+                          ],
+
+                          // Bill split
+                          if (widget.session.pricePerPlayer != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: c.withValues(alpha: 0.07),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: c.withValues(alpha: 0.2)),
+                              ),
+                              child: Row(children: [
+                                Icon(Icons.receipt_long_outlined, size: 13, color: c),
+                                const SizedBox(width: 6),
+                                Text('تقسيم: ${widget.session.totalPlayers} × ${widget.session.pricePerPlayer!.toInt()} ج',
+                                  style: TextStyle(fontSize: 12,
+                                      fontWeight: FontWeight.w700, color: c)),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: c,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                );
-                                if (ok == true && context.mounted) {
-                                  await ref
-                                      .read(sessionsProvider.notifier)
-                                      .deleteSession(session.id);
-                                }
-                              },
+                                  child: Text(
+                                    'نصيبك ${widget.session.pricePerPlayer!.toInt()} ج',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ]),
                             ),
+                          ],
+
+                          const SizedBox(height: 12),
+
+                          // Actions
+                          Row(
+                            children: [
+                              if (alreadyJoined || isCreator)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => SessionChatScreen(
+                                            session: widget.session),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.chat_rounded, size: 16),
+                                    label: const Text('دردشة'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: c,
+                                      side: BorderSide(color: c),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20)),
+                                    ),
+                                  ),
+                                ),
+                                
+                              if (isCreator)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: AppColors.error, size: 20),
+                                    tooltip: 'حذف الإعلان',
+                                    onPressed: () async {
+                                      final ok = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20)),
+                                          title: const Text('حذف الإعلان؟',
+                                              style: TextStyle(fontWeight: FontWeight.w800)),
+                                          content: const Text('هتشيل الإعلان ده نهائياً؟'),
+                                          actions: [
+                                            TextButton(
+                                                onPressed: () => Navigator.pop(ctx, false),
+                                                child: const Text('لا')),
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(ctx, true),
+                                              child: const Text('نعم، احذفه',
+                                                  style: TextStyle(color: AppColors.error)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (ok == true && context.mounted) {
+                                        await ref
+                                            .read(sessionsProvider.notifier)
+                                            .deleteSession(widget.session.id);
+                                      }
+                                    },
+                                  ),
+                                ),
+
+                              const Spacer(),
+                              if (alreadyJoined && !isCreator)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                        color: AppColors.primary.withValues(alpha: 0.3)),
+                                  ),
+                                  child: const Text('انضممت ✓',
+                                      style: TextStyle(
+                                        color: AppColors.primary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      )),
+                                )
+                              else if (widget.session.isOpen && !isCreator)
+                                _JoinButton(session: widget.session),
+                              
+                              if (widget.session.isOpen && !alreadyJoined && !isCreator)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ElevatedButton(
+                                    onPressed: () {}, // Future team join
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.secondary,
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20)),
+                                    ),
+                                    child: const Text('دخول التيم', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                  ),
+                                ),
+                            ],
                           ),
-
-                        const Spacer(),
-
-                        if (alreadyJoined && !isCreator)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                  color: AppColors.primary.withValues(alpha: 0.3)),
-                            ),
-                            child: const Text('انضممت ✓',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              )),
-                          )
-                        else if (session.isOpen && !isCreator)
-                          _JoinButton(session: session),
+                        ],
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
